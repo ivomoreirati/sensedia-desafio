@@ -42,11 +42,14 @@ def select_workspace(env_name: str, env: dict[str, str]) -> None:
     Sem isso, aplicar --env stg depois de --env dev destruiria os recursos
     de dev para criar os de stg — os dois compartilhariam o mesmo state
     local em vez de coexistirem isolados.
+
+    Usa `-or-create` em vez de tentar `select` e cair para `new` em
+    qualquer falha: essa primeira versão mascarava outras causas de erro
+    (state corrompido, permissão) como se fossem só "workspace não existe".
+    `-or-create` é a própria ferramenta resolvendo isso — sem depender de
+    inspecionar o texto do erro, que pode mudar entre versões do Terraform.
     """
-    try:
-        _run(["workspace", "select", env_name], env)
-    except TerraformError:
-        _run(["workspace", "new", env_name], env)
+    _run(["workspace", "select", "-or-create", env_name], env)
 
 
 def list_workspaces(env: dict[str, str]) -> list[str]:
