@@ -93,6 +93,23 @@ def _to_item(product_id, data):
     }
 
 
+def _validate_partial_product(data):
+    """Para PATCH: qualquer subconjunto de {name, price} é aceito, desde que
+    pelo menos um campo venha e cada campo presente seja válido. Diferente de
+    PUT, que exige o objeto inteiro (substituição total)."""
+    if not isinstance(data, dict):
+        return "corpo da requisição deve ser um objeto JSON"
+    if "name" not in data and "price" not in data:
+        return "informe pelo menos um campo para atualizar: 'name' ou 'price'"
+    if "name" in data and (not isinstance(data["name"], str) or not data["name"].strip()):
+        return "'name', se informado, deve ser uma string não vazia"
+    if "price" in data:
+        price = data["price"]
+        if not isinstance(price, (int, float)) or isinstance(price, bool) or price < 0:
+            return "'price', se informado, deve ser um número >= 0"
+    return None
+
+
 def handler(event, context):
     method = event.get("requestContext", {}).get("http", {}).get("method", "")
     path = (event.get("rawPath") or "").rstrip("/") or "/"
@@ -125,6 +142,8 @@ def _route(method, path, event):
             return _get_product(product_id)
         if method == "PUT":
             return _update_product(product_id, event)
+        if method == "PATCH":
+            return _patch_product(product_id, event)
         if method == "DELETE":
             return _delete_product(product_id)
         return _error(405, f"método {method} não suportado em /products/{{id}}")
@@ -169,6 +188,32 @@ def _update_product(product_id, event):
         return _error(400, error)
 
     item = _to_item(product_id, data)
+    _table().put_item(Item=item)
+    return _response(200, item)
+
+
+def _patch_product(product_id, event):
+    """Atualização parcial: só sobrescreve os campos enviados.
+
+    Existe ao lado de PUT (substituição total) — decisão registrada em
+    METODOLOGIA.md ponto 3: PUT sozinho obrigava reenviar o objeto inteiro
+    até pra mudar um campo, o que não fazia sentido para o escopo deste
+    CRUD nem facilitava testar a API manualmente.
+    """
+    existing = _table().get_item(Key={"id": product_id}).get("Item")
+    if existing is None:
+        return _error(404, "produto não encontrado")
+
+    data = _parse_body(event)
+    error = _validate_partial_product(data)
+    if error:
+        return _error(400, error)
+
+    merged = {
+        "name": data.get("name", existing["name"]),
+        "price": data.get("price", existing["price"]),
+    }
+    item = _to_item(product_id, merged)
     _table().put_item(Item=item)
     return _response(200, item)
 

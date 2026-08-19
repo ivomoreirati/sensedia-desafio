@@ -89,10 +89,15 @@ curl -s "$FUNCTION_URL/products"
 # Buscar um
 curl -s "$FUNCTION_URL/products/<id>"
 
-# Atualizar
+# Atualizar (substitui o objeto inteiro — exige name e price)
 curl -s -X PUT "$FUNCTION_URL/products/<id>" \
   -H "Content-Type: application/json" \
   -d '{"name":"Teclado mecânico RGB","price":399.90}'
+
+# Atualizar parcialmente (só os campos enviados são alterados)
+curl -s -X PATCH "$FUNCTION_URL/products/<id>" \
+  -H "Content-Type: application/json" \
+  -d '{"price":379.90}'
 
 # Remover
 curl -s -X DELETE "$FUNCTION_URL/products/<id>"
