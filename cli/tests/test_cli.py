@@ -34,6 +34,17 @@ def aws_credentials(monkeypatch):
     monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "test")
 
 
+@pytest.fixture(autouse=True)
+def fake_workspace_selection(monkeypatch):
+    """Por padrão, simula init/select_workspace bem-sucedidos.
+
+    Testes que precisam verificar o comportamento de init/workspace
+    especificamente sobrescrevem isso.
+    """
+    monkeypatch.setattr(cli_main.terraform_runner, "init", lambda env: None)
+    monkeypatch.setattr(cli_main.terraform_runner, "select_workspace", lambda env_name, env: None)
+
+
 class TestValidacaoAntesDeQualquerEfeitoColateral:
     def test_up_sem_env_falha_sem_chamar_terraform(self, monkeypatch):
         called = []
@@ -72,7 +83,6 @@ class TestValidacaoAntesDeQualquerEfeitoColateral:
 
 class TestComandoUp:
     def test_reporta_nada_a_fazer_quando_terraform_nao_muda_nada(self, monkeypatch):
-        monkeypatch.setattr(cli_main.terraform_runner, "init", lambda env: None)
         monkeypatch.setattr(
             cli_main.terraform_runner,
             "apply",
@@ -85,7 +95,6 @@ class TestComandoUp:
         assert "já estava atualizado" in result.output
 
     def test_reporta_sucesso_quando_terraform_aplica_mudancas(self, monkeypatch):
-        monkeypatch.setattr(cli_main.terraform_runner, "init", lambda env: None)
         monkeypatch.setattr(
             cli_main.terraform_runner,
             "apply",
@@ -98,8 +107,6 @@ class TestComandoUp:
         assert "provisionado com sucesso" in result.output
 
     def test_traduz_erro_do_terraform_sem_expor_stacktrace_python(self, monkeypatch):
-        monkeypatch.setattr(cli_main.terraform_runner, "init", lambda env: None)
-
         def _falha(env_name, env):
             raise TerraformError(["apply"], "mensagem de erro real do terraform")
 
@@ -111,10 +118,23 @@ class TestComandoUp:
         assert "mensagem de erro real do terraform" in result.output
         assert "Traceback" not in result.output
 
+    def test_seleciona_workspace_isolado_por_ambiente(self, monkeypatch):
+        """dev e stg precisam de state separado — ver terraform_runner.select_workspace."""
+        selected = []
+        monkeypatch.setattr(
+            cli_main.terraform_runner,
+            "select_workspace",
+            lambda env_name, env: selected.append(env_name),
+        )
+        monkeypatch.setattr(cli_main.terraform_runner, "apply", lambda env_name, env: "Apply complete!")
+
+        runner.invoke(cli_main.app, ["up", "--env", "stg"])
+
+        assert selected == ["stg"]
+
 
 class TestComandoDestroy:
     def test_pede_confirmacao_por_padrao_e_aborta_se_recusado(self, monkeypatch):
-        monkeypatch.setattr(cli_main.terraform_runner, "init", lambda env: None)
         destroy_called = []
         monkeypatch.setattr(
             cli_main.terraform_runner,
@@ -128,7 +148,6 @@ class TestComandoDestroy:
         assert destroy_called == []
 
     def test_yes_pula_confirmacao(self, monkeypatch):
-        monkeypatch.setattr(cli_main.terraform_runner, "init", lambda env: None)
         monkeypatch.setattr(
             cli_main.terraform_runner,
             "destroy",
@@ -141,7 +160,6 @@ class TestComandoDestroy:
         assert "destruído com sucesso" in result.output
 
     def test_reporta_nada_a_fazer_em_ambiente_ja_destruido(self, monkeypatch):
-        monkeypatch.setattr(cli_main.terraform_runner, "init", lambda env: None)
         monkeypatch.setattr(
             cli_main.terraform_runner,
             "destroy",

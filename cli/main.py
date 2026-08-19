@@ -38,6 +38,16 @@ def check_prereqs():
         raise typer.Exit(code=1)
 
 
+def _init_workspace(env_name: str, tf_env: dict[str, str]) -> None:
+    typer.echo(f"Inicializando terraform para o ambiente '{env_name}'...")
+    try:
+        terraform_runner.init(tf_env)
+        terraform_runner.select_workspace(env_name, tf_env)
+    except terraform_runner.TerraformError as exc:
+        typer.echo(f"Erro ao inicializar o terraform:\n{exc.stderr}", err=True)
+        raise typer.Exit(code=1)
+
+
 def _build_tf_env() -> dict[str, str]:
     missing = [var for var in REQUIRED_ENV_VARS if not os.environ.get(var)]
     if missing:
@@ -57,13 +67,7 @@ def up(
 ):
     """Provisiona ou reconcilia o ambiente. Rodar duas vezes é seguro."""
     tf_env = _build_tf_env()
-
-    typer.echo(f"Inicializando terraform para o ambiente '{env.value}'...")
-    try:
-        terraform_runner.init(tf_env)
-    except terraform_runner.TerraformError as exc:
-        typer.echo(f"Erro ao inicializar o terraform:\n{exc.stderr}", err=True)
-        raise typer.Exit(code=1)
+    _init_workspace(env.value, tf_env)
 
     typer.echo(f"Aplicando ambiente '{env.value}'...")
     try:
@@ -94,11 +98,7 @@ def destroy(
             abort=True,
         )
 
-    try:
-        terraform_runner.init(tf_env)
-    except terraform_runner.TerraformError as exc:
-        typer.echo(f"Erro ao inicializar o terraform:\n{exc.stderr}", err=True)
-        raise typer.Exit(code=1)
+    _init_workspace(env.value, tf_env)
 
     typer.echo(f"Destruindo ambiente '{env.value}'...")
     try:

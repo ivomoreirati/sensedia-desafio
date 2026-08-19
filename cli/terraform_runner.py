@@ -36,6 +36,19 @@ def init(env: dict[str, str]) -> None:
     _run(["init", "-input=false"], env)
 
 
+def select_workspace(env_name: str, env: dict[str, str]) -> None:
+    """Garante que dev e stg tenham state isolado (um workspace cada).
+
+    Sem isso, aplicar --env stg depois de --env dev destruiria os recursos
+    de dev para criar os de stg — os dois compartilhariam o mesmo state
+    local em vez de coexistirem isolados.
+    """
+    try:
+        _run(["workspace", "select", env_name], env)
+    except TerraformError:
+        _run(["workspace", "new", env_name], env)
+
+
 def apply(env_name: str, env: dict[str, str]) -> str:
     return _run(
         [
