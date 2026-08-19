@@ -80,3 +80,14 @@ enunciado. Também descarto o diferencial de "estado persistido em lugar duráve
 compartilhável": como o ambiente inteiro é local e efêmero, perseguir backend remoto
 (S3 + lock DynamoDB) resolveria um problema que não existe neste contexto. Documento
 aqui como pensaria isso em um cenário AWS real, mas não implemento.
+
+**Limitações de emulação encontradas na prática** (vale a pena registrar porque afeta
+o que se observa testando a API, não a correção do código):
+
+- `localstack/localstack:latest` passou a exigir `LOCALSTACK_AUTH_TOKEN` mesmo no
+  edition community — fixamos a imagem em `3.0` no `docker-compose.yml`.
+- A Function URL da Lambda no LocalStack 3.0 (community) não repassa o `statusCode`
+  retornado pelo handler para o HTTP real: toda resposta chega ao cliente como `200`,
+  mesmo quando o handler retorna `404`/`400`/`204`. Confirmado com `aws lambda invoke`
+  direto (sem passar pela Function URL) que o handler devolve o `statusCode` correto —
+  é limitação do emulador, não bug de aplicação. Em AWS real o comportamento é padrão.
