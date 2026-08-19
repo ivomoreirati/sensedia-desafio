@@ -25,6 +25,24 @@ class Env(str, Enum):
     stg = "stg"
 
 
+_CONNECTION_HINT = (
+    "Isso geralmente significa que o LocalStack não está rodando. "
+    "Confira com: docker compose up -d"
+)
+
+
+def _print_terraform_error(action: str, stderr: str) -> None:
+    """Erro do Terraform tem duas partes: uma dica prática (quando dá pra
+    reconhecer a causa) e o detalhe técnico bruto — nunca só o segundo, que
+    sozinho não ajuda um operador que nunca viu Terraform por dentro.
+    """
+    typer.echo(f"Erro ao {action}.", err=True)
+    if "connection refused" in stderr.lower() or "dial tcp" in stderr.lower():
+        typer.echo(_CONNECTION_HINT, err=True)
+    typer.echo("\nDetalhe técnico (saída do Terraform):", err=True)
+    typer.echo(stderr, err=True)
+
+
 @app.callback()
 def check_prereqs():
     load_dotenv()
@@ -45,7 +63,7 @@ def _init_workspace(env_name: str, tf_env: dict[str, str]) -> None:
         terraform_runner.init(tf_env)
         terraform_runner.select_workspace(env_name, tf_env)
     except terraform_runner.TerraformError as exc:
-        typer.echo(f"Erro ao inicializar o terraform:\n{exc.stderr}", err=True)
+        _print_terraform_error(f"inicializar o terraform para o ambiente '{env_name}'", exc.stderr)
         raise typer.Exit(code=1)
 
 
@@ -74,7 +92,7 @@ def up(
     try:
         result = terraform_runner.apply(env.value, tf_env)
     except terraform_runner.TerraformError as exc:
-        typer.echo(f"Erro ao provisionar o ambiente '{env.value}':\n{exc.stderr}", err=True)
+        _print_terraform_error(f"provisionar o ambiente '{env.value}'", exc.stderr)
         raise typer.Exit(code=1)
 
     if "No changes." in result:
@@ -105,7 +123,7 @@ def destroy(
     try:
         result = terraform_runner.destroy(env.value, tf_env)
     except terraform_runner.TerraformError as exc:
-        typer.echo(f"Erro ao destruir o ambiente '{env.value}':\n{exc.stderr}", err=True)
+        _print_terraform_error(f"destruir o ambiente '{env.value}'", exc.stderr)
         raise typer.Exit(code=1)
 
     if "No objects need to be destroyed" in result:
@@ -125,7 +143,7 @@ def status(
         terraform_runner.init(tf_env)
         workspaces = terraform_runner.list_workspaces(tf_env)
     except terraform_runner.TerraformError as exc:
-        typer.echo(f"Erro ao inicializar o terraform:\n{exc.stderr}", err=True)
+        _print_terraform_error(f"inicializar o terraform para o ambiente '{env.value}'", exc.stderr)
         raise typer.Exit(code=1)
 
     if env.value not in workspaces:
@@ -136,7 +154,7 @@ def status(
         terraform_runner.select_existing_workspace(env.value, tf_env)
         outputs = json.loads(terraform_runner.output(tf_env))
     except terraform_runner.TerraformError as exc:
-        typer.echo(f"Erro ao consultar o ambiente '{env.value}':\n{exc.stderr}", err=True)
+        _print_terraform_error(f"consultar o ambiente '{env.value}'", exc.stderr)
         raise typer.Exit(code=1)
 
     if not outputs:

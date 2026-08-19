@@ -118,6 +118,17 @@ class TestComandoUp:
         assert "mensagem de erro real do terraform" in result.output
         assert "Traceback" not in result.output
 
+    def test_erro_de_conexao_sugere_subir_o_localstack(self, monkeypatch):
+        def _falha(env_name, env):
+            raise TerraformError(["apply"], "dial tcp 127.0.0.1:4566: connect: connection refused")
+
+        monkeypatch.setattr(cli_main.terraform_runner, "apply", _falha)
+
+        result = runner.invoke(cli_main.app, ["up", "--env", "dev"])
+
+        assert result.exit_code == 1
+        assert "docker compose up" in result.output
+
     def test_seleciona_workspace_isolado_por_ambiente(self, monkeypatch):
         """dev e stg precisam de state separado — ver terraform_runner.select_workspace."""
         selected = []
