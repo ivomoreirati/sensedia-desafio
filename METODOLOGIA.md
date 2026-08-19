@@ -56,6 +56,12 @@ escopo no processo, provavelmente teria sido mais rápida.
   que uma mudança recente de licenciamento do LocalStack passou a exigir
   token de autenticação mesmo no edition community — só descoberto ao rodar,
   não antecipado antes.
+- Escreveu o comando `up`/`destroy` inicial sem selecionar workspace do
+  Terraform, o que significava que `dev` e `stg` compartilhariam o mesmo
+  state local — aplicar `stg` depois de `dev` destruiria os recursos de
+  `dev`. Só apareceu ao testar de propósito o diferencial de segundo
+  ambiente; não foi antecipado no desenho original da CLI. Corrigido com
+  `terraform workspace select/new` por ambiente.
 
 ## 3. Caso concreto de discordância
 
