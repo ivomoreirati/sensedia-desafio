@@ -82,4 +82,12 @@ resource "aws_lambda_function" "api" {
 resource "aws_lambda_function_url" "api" {
   function_name      = aws_lambda_function.api.function_name
   authorization_type = "NONE" # ver README/ADR: autenticação fora de escopo, decisão explícita
+
+  lifecycle {
+    # O LocalStack não devolve `invoke_mode` na leitura do recurso, então o
+    # Terraform detecta drift falso e tenta corrigir a cada apply. Nada muda
+    # de fato (comportamento real da AWS/LocalStack é idêntico); ignoramos
+    # esse atributo para que `up` rodado 2x reporte "no changes" de verdade.
+    ignore_changes = [invoke_mode]
+  }
 }
