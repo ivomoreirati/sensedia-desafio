@@ -74,6 +74,9 @@ FUNCTION_URL=$(AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test AWS_DEFAULT_REG
 ```
 
 ```bash
+# Health check (não toca no banco — só confirma que a Lambda está viva)
+curl -s "$FUNCTION_URL/health"
+
 # Criar
 curl -s -X POST "$FUNCTION_URL/products" \
   -H "Content-Type: application/json" \
@@ -168,7 +171,8 @@ Terraform — validado com dados reais), comando `status` de inspeção sem efei
 colateral, `destroy` com confirmação + `--yes`, testes automatizados sem
 dependência de nuvem, CI validando testes + `terraform fmt`/`validate` sem
 provisionar, comando customizado do Claude Code (`/adr`) para registrar novas
-decisões de arquitetura, histórico de commits espelhando decisão → implementação
+decisões de arquitetura, `/health` + log estruturado em JSON (sem corpo de
+requisição/resposta), histórico de commits espelhando decisão → implementação
 → ajuste.
 
 Diferencial conscientemente **não** perseguido: estado do Terraform em backend
