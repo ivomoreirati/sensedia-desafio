@@ -65,11 +65,34 @@ escopo no processo, provavelmente teria sido mais rápida.
 
 ## 3. Caso concreto de discordância
 
-*A preencher antes da entrega final — nenhum momento de discordância genuína
-aconteceu ainda nesta sessão (o processo deliberativo do ponto 1 fez com que
-cada escolha fosse validada antes de virar código, o que reduziu atrito depois).
-Se aparecer um até sexta, entra aqui com o que foi sugerido, por que discordei,
-e o que fiz a respeito.*
+Pedi pro agente listar decisões de implementação que ele tinha tomado sozinho
+dentro do que eu já tinha aprovado em nível mais alto, justamente pra ter algo
+concreto pra concordar ou discordar — até esse ponto, toda decisão relevante
+já tinha sido validada *antes* de virar código, então não tinha sobrado atrito
+real pra registrar aqui.
+
+**Discordei de que `PUT /products/{id}` exigisse o objeto inteiro** (`name` e
+`price` sempre, mesmo pra mudar só um campo). Pra mim isso deixava a API mais
+chata de testar manualmente do que precisava ser pra esse escopo — eu queria
+poder mandar só o campo que estava mudando. Pedi pra usar um método que
+aceitasse atualização parcial. O agente manteve o `PUT` como estava
+(substituição total, semântica REST correta) e adicionou `PATCH
+/products/{id}` do lado, que só exige pelo menos um campo (`name` ou `price`)
+e mantém o resto do que já existia — os dois convivem agora.
+
+**Também questionei uma escolha mais técnica**: o código original tratava
+*qualquer* erro ao selecionar um workspace do Terraform como "workspace não
+existe, então cria um novo" — perguntei se isso era realmente a forma certa de
+capturar a exceção específica, ou se estava mascarando outros erros reais
+(state corrompido, permissão). O agente concordou que sim, era uma
+generalização perigosa, e trocou por `terraform workspace select -or-create`
+— uma flag nativa do próprio Terraform pra esse exato caso, que elimina o
+`try/except` genérico por completo em vez de só deixá-lo mais específico.
+
+Os dois casos: nenhuma das duas mudanças era estritamente necessária pro
+escopo do desafio, mas as duas deixaram o código mais correto — vale mais
+questionar decisão de implementação já pronta do que só aprovar decisão de
+arquitetura antes de existir código.
 
 ## 4. O que mudaria em 6 meses
 
