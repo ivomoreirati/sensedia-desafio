@@ -170,3 +170,52 @@ class TestComandoDestroy:
 
         assert result.exit_code == 0
         assert "já estava destruído" in result.output
+
+
+class TestComandoStatus:
+    def test_ambiente_nunca_provisionado(self, monkeypatch):
+        monkeypatch.setattr(cli_main.terraform_runner, "list_workspaces", lambda env: ["default"])
+
+        result = runner.invoke(cli_main.app, ["status", "--env", "dev"])
+
+        assert result.exit_code == 0
+        assert "nunca foi provisionado" in result.output
+
+    def test_ambiente_provisionado_mostra_outputs(self, monkeypatch):
+        monkeypatch.setattr(cli_main.terraform_runner, "list_workspaces", lambda env: ["default", "dev"])
+        monkeypatch.setattr(cli_main.terraform_runner, "select_existing_workspace", lambda env_name, env: None)
+        monkeypatch.setattr(
+            cli_main.terraform_runner,
+            "output",
+            lambda env: '{"function_url": {"value": "http://example.com"}, "table_name": {"value": "products-dev"}}',
+        )
+
+        result = runner.invoke(cli_main.app, ["status", "--env", "dev"])
+
+        assert result.exit_code == 0
+        assert "está provisionado" in result.output
+        assert "http://example.com" in result.output
+        assert "products-dev" in result.output
+
+    def test_ambiente_destruido_sem_recursos(self, monkeypatch):
+        monkeypatch.setattr(cli_main.terraform_runner, "list_workspaces", lambda env: ["default", "dev"])
+        monkeypatch.setattr(cli_main.terraform_runner, "select_existing_workspace", lambda env_name, env: None)
+        monkeypatch.setattr(cli_main.terraform_runner, "output", lambda env: "{}")
+
+        result = runner.invoke(cli_main.app, ["status", "--env", "dev"])
+
+        assert result.exit_code == 0
+        assert "sem recursos ativos" in result.output
+
+    def test_nao_chama_apply_nem_destroy(self, monkeypatch):
+        """status nunca deve ter efeito colateral no ambiente."""
+        called = []
+        monkeypatch.setattr(cli_main.terraform_runner, "list_workspaces", lambda env: ["default", "dev"])
+        monkeypatch.setattr(cli_main.terraform_runner, "select_existing_workspace", lambda env_name, env: None)
+        monkeypatch.setattr(cli_main.terraform_runner, "output", lambda env: "{}")
+        monkeypatch.setattr(cli_main.terraform_runner, "apply", lambda *a: called.append("apply"))
+        monkeypatch.setattr(cli_main.terraform_runner, "destroy", lambda *a: called.append("destroy"))
+
+        runner.invoke(cli_main.app, ["status", "--env", "dev"])
+
+        assert called == []

@@ -49,6 +49,20 @@ def select_workspace(env_name: str, env: dict[str, str]) -> None:
         _run(["workspace", "new", env_name], env)
 
 
+def list_workspaces(env: dict[str, str]) -> list[str]:
+    output_text = _run(["workspace", "list"], env)
+    return [line.strip().lstrip("*").strip() for line in output_text.splitlines() if line.strip()]
+
+
+def select_existing_workspace(env_name: str, env: dict[str, str]) -> None:
+    """Troca pro workspace do ambiente, sem criar um novo se não existir.
+
+    Usado por `status`, que não deve ter nenhum efeito colateral — nem
+    criar um workspace vazio para um ambiente nunca provisionado.
+    """
+    _run(["workspace", "select", env_name], env)
+
+
 def apply(env_name: str, env: dict[str, str]) -> str:
     return _run(
         [

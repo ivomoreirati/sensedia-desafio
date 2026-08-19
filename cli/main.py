@@ -5,6 +5,7 @@ antes de qualquer efeito colateral, e traduz o resultado do Terraform em
 algo legível para um operador que nunca viu este código.
 """
 
+import json
 import os
 import shutil
 from enum import Enum
@@ -111,6 +112,40 @@ def destroy(
         typer.echo(f"Ambiente '{env.value}' já estava destruído — nada a fazer.")
     else:
         typer.echo(f"Ambiente '{env.value}' destruído com sucesso.")
+
+
+@app.command()
+def status(
+    env: Env = typer.Option(..., "--env", help="Ambiente a inspecionar."),
+):
+    """Mostra se o ambiente está provisionado. Não cria, muda nem destrói nada."""
+    tf_env = _build_tf_env()
+
+    try:
+        terraform_runner.init(tf_env)
+        workspaces = terraform_runner.list_workspaces(tf_env)
+    except terraform_runner.TerraformError as exc:
+        typer.echo(f"Erro ao inicializar o terraform:\n{exc.stderr}", err=True)
+        raise typer.Exit(code=1)
+
+    if env.value not in workspaces:
+        typer.echo(f"Ambiente '{env.value}' nunca foi provisionado.")
+        return
+
+    try:
+        terraform_runner.select_existing_workspace(env.value, tf_env)
+        outputs = json.loads(terraform_runner.output(tf_env))
+    except terraform_runner.TerraformError as exc:
+        typer.echo(f"Erro ao consultar o ambiente '{env.value}':\n{exc.stderr}", err=True)
+        raise typer.Exit(code=1)
+
+    if not outputs:
+        typer.echo(f"Ambiente '{env.value}' está destruído — sem recursos ativos.")
+        return
+
+    typer.echo(f"Ambiente '{env.value}' está provisionado:")
+    for key, data in outputs.items():
+        typer.echo(f"  {key}: {data['value']}")
 
 
 if __name__ == "__main__":
