@@ -15,6 +15,7 @@ comportamento é o padrão (statusCode repassado normalmente).
 
 import base64
 import json
+import logging
 import os
 import re
 import uuid
@@ -26,6 +27,18 @@ TABLE_NAME = os.environ.get("TABLE_NAME")
 
 _dynamodb = boto3.resource("dynamodb")
 _ROUTE = re.compile(r"/products(?:/([^/]+))?")
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+
+def _log(event_type: str, **fields):
+    """Log estruturado em JSON — uma linha por evento, fácil de indexar em
+    CloudWatch Logs Insights (ou no que quer que leia os logs no LocalStack).
+    Nunca loga corpo de requisição/resposta: evita vazar dados de produto ou
+    qualquer coisa sensível no futuro, mesmo não havendo segredo hoje.
+    """
+    logger.info(json.dumps({"event": event_type, **fields}))
 
 
 def _table():
@@ -83,6 +96,17 @@ def _to_item(product_id, data):
 def handler(event, context):
     method = event.get("requestContext", {}).get("http", {}).get("method", "")
     path = (event.get("rawPath") or "").rstrip("/") or "/"
+    _log("request_received", method=method, path=path)
+
+    response = _route(method, path, event)
+
+    _log("request_completed", method=method, path=path, status=response["statusCode"])
+    return response
+
+
+def _route(method, path, event):
+    if method == "GET" and path == "/health":
+        return _response(200, {"status": "ok"})
 
     match = _ROUTE.fullmatch(path)
     if not match:
@@ -105,6 +129,9 @@ def handler(event, context):
             return _delete_product(product_id)
         return _error(405, f"método {method} não suportado em /products/{{id}}")
     except Exception:
+        # Stack trace completo vai só pro log interno (CloudWatch/LocalStack) —
+        # o cliente nunca vê mais do que a mensagem genérica abaixo.
+        logger.exception("erro inesperado processando requisição")
         return _error(500, "erro interno ao processar a requisição")
 
 
