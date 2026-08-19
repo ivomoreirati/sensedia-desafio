@@ -134,6 +134,18 @@ credencial de banco (acesso via IAM Role — não existe usuário/senha para
 vazar). Decisões completas, alternativas descartadas e trade-offs assumidos:
 [ADR-001](docs/decisions/ADR-001-stack-e-arquitetura.md).
 
+### Autenticação
+
+A API **não tem autenticação** (`authorization_type = "NONE"` na Function URL).
+Decisão deliberada, não omissão: o desafio permite explicitamente autenticação
+trivial ou inexistente, e qualquer mecanismo de auth (API key, JWT, IAM auth na
+própria Function URL) adicionaria superfície de configuração e de erro sem
+testar nada que este desafio avalia — a CLI e o ciclo de vida da
+infraestrutura, não a segurança de borda da API. Em um cenário real de
+produção, o próximo passo seria IAM auth na Function URL (`authorization_type
+= "AWS_IAM"`) ou um autenticador Lambda na frente, dependendo de quem consome
+a API.
+
 ## Estrutura do repositório
 
 ```
