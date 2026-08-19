@@ -49,10 +49,13 @@ python -m cli.main up --env dev        # rodar de novo: "já estava atualizado",
 
 python -m cli.main destroy --env dev   # pede confirmação antes de destruir
 python -m cli.main destroy --env dev --yes   # sem confirmação, para automação/CI
+
+python -m cli.main status --env dev    # inspeciona sem efeito colateral (não cria/muda/destrói nada)
 ```
 
-`--env` aceita `dev` ou `stg` (validado pela CLI e pelo Terraform — dois ambientes
-isolados, mesma infraestrutura, provados pela mesma CLI).
+`--env` aceita `dev` ou `stg` — cada um em um workspace Terraform separado (state
+isolado), validado criando dados em `dev` e confirmando que não aparecem em `stg`,
+e que destruir um não afeta o outro.
 
 Convenções da CLI:
 - **stdout** é o resultado para o operador; **stderr** é diagnóstico/erro.
@@ -141,6 +144,8 @@ infra/                # só Terraform
 app/
   handler.py           # Lambda: CRUD de /products
 docs/decisions/         # ADRs
+.github/workflows/ci.yml # testes da CLI + terraform fmt/validate, sem provisionar
+.claude/commands/adr.md  # comando customizado: registra decisões como ADR
 CLAUDE.md               # configuração/contexto ensinado ao agente de IA
 METODOLOGIA.md           # processo de desenvolvimento assistido por IA
 ```
@@ -156,11 +161,15 @@ METODOLOGIA.md           # processo de desenvolvimento assistido por IA
 | R5 | README reproduzível do zero | Este arquivo. |
 | R6 | Decisões de arquitetura registradas | [ADR-001](docs/decisions/ADR-001-stack-e-arquitetura.md). |
 | R7 | METODOLOGIA.md com 2+ abordagens | [METODOLOGIA.md](METODOLOGIA.md). |
-| R8 | Artefatos de processo e config de agentes versionados | [CLAUDE.md](CLAUDE.md), histórico de commits, este README. |
+| R8 | Artefatos de processo e config de agentes versionados | [CLAUDE.md](CLAUDE.md), [`.claude/commands/adr.md`](.claude/commands/adr.md), histórico de commits, este README. |
 
-Diferenciais entregues: segundo ambiente (`--env stg`), `destroy` com confirmação
-+ `--yes`, testes automatizados sem dependência de nuvem, histórico de commits
-espelhando decisão → implementação → ajuste.
+Diferenciais entregues: segundo ambiente (`--env stg`, isolado por workspace do
+Terraform — validado com dados reais), comando `status` de inspeção sem efeito
+colateral, `destroy` com confirmação + `--yes`, testes automatizados sem
+dependência de nuvem, CI validando testes + `terraform fmt`/`validate` sem
+provisionar, comando customizado do Claude Code (`/adr`) para registrar novas
+decisões de arquitetura, histórico de commits espelhando decisão → implementação
+→ ajuste.
 
 Diferencial conscientemente **não** perseguido: estado do Terraform em backend
 remoto (S3 + lock DynamoDB). Justificativa em ADR-001, Decisão 4.

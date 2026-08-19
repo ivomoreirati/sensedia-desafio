@@ -32,6 +32,10 @@ quem está desenvolvendo.
 
 - `up --env <env>` e `destroy --env <env>` precisam ser idempotentes: rodar duas vezes
   não quebra nem duplica. "Nada a fazer" é sucesso (`exit 0`), não erro.
+- `dev` e `stg` são workspaces Terraform separados (state isolado) — nunca assumir
+  que os dois compartilham o mesmo state.
+- `status --env <env>` só inspeciona (nunca chama apply/destroy, nunca cria workspace
+  novo). Qualquer novo comando de inspeção deve seguir o mesmo princípio.
 - stdout = resultado para o operador. stderr = diagnóstico/erro. Exit code é a API real
   da CLI — nunca retornar 0 em caso de falha.
 - Terraform state fica local e fora do controle de versão (diferencial de state remoto
