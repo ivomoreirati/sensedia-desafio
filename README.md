@@ -142,6 +142,18 @@ credencial de banco (acesso via IAM Role — não existe usuário/senha para
 vazar). Decisões completas, alternativas descartadas e trade-offs assumidos:
 [ADR-001](docs/decisions/ADR-001-stack-e-arquitetura.md).
 
+### Banco: gerenciado (DynamoDB), não containerizado
+
+Optei por um banco **gerenciado** em vez de **containerizado**. Um banco
+containerizado (ex.: Postgres em container) reintroduziria exatamente o
+problema que a decisão de IAM Role resolve — voltaria a existir credencial de
+banco de verdade (usuário/senha) —, e exigiria colocar o compute numa VPC pra
+alcançar o container em rede privada, uma categoria inteira de configuração
+(subnets, security groups) que este escopo não precisa. DynamoDB, sendo
+gerenciado, não tem ciclo de vida de storage/patch/backup pra operar — é
+tabela declarada no Terraform, ponto. Detalhe completo em
+[ADR-001, Decisão 3](docs/decisions/ADR-001-stack-e-arquitetura.md).
+
 ### Autenticação
 
 A API **não tem autenticação** (`authorization_type = "NONE"` na Function URL).

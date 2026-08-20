@@ -56,6 +56,14 @@ Terraform, que precisam ser traduzidos para algo legível ao operador.
   de verdade.
 - **EC2 (VM)**: mais manual (gestão de SO, systemd), foge do que se espera de automação
   moderna de plataforma. Sem vantagem clara para este escopo.
+- **Banco containerizado** (ex.: Postgres em container, rodando em ECS/Fargate ou na
+  própria VM): descartada pelo mesmo motivo de fundo do RDS — expõe credencial de
+  banco de verdade (usuário/senha), o oposto do que a decisão de IAM Role resolve.
+  Também exige rodar o compute (Lambda) dentro de uma VPC pra alcançar o container
+  em rede privada, o que sozinho já adiciona uma categoria inteira de configuração
+  (subnets, security groups, ENI) que este escopo não precisa. Bônus perdido: um
+  container tem ciclo de vida e storage pra gerenciar (volume, backup, patch da
+  imagem) que um serviço gerenciado como DynamoDB simplesmente não tem.
 
 **Decisão**: Lambda → DynamoDB, acesso via IAM Role.
 
