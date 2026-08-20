@@ -97,9 +97,37 @@ variável de ambiente é mantido como se fosse real).
 **Trade-off assumido**: não entrego uma URL pública real — entrego `docker compose up` +
 `curl` de exemplo rodando localmente, conforme a alternativa explicitamente aceita pelo
 enunciado. Também descarto o diferencial de "estado persistido em lugar durável e
-compartilhável": como o ambiente inteiro é local e efêmero, perseguir backend remoto
-(S3 + lock DynamoDB) resolveria um problema que não existe neste contexto. Documento
-aqui como pensaria isso em um cenário AWS real, mas não implemento.
+compartilhável": como o ambiente inteiro é local e efêmero (uma pessoa, uma máquina),
+perseguir backend remoto resolveria um problema que não existe neste contexto.
+
+**Como eu pensaria o backend remoto se o contexto exigisse** (mais de uma pessoa/máquina
+operando o mesmo ambiente):
+
+```hcl
+terraform {
+  backend "s3" {
+    bucket         = "sensedia-desafio-tfstate"
+    key            = "infra/terraform.tfstate"  # workspace_key_prefix separa dev/stg automaticamente
+    region         = "us-east-1"
+    dynamodb_table = "sensedia-desafio-tfstate-lock"  # lock de escrita concorrente
+    encrypt        = true
+  }
+}
+```
+
+O ponto que exige desenho, não só configuração: isso cria um problema de
+"ovo e galinha" — o backend S3+DynamoDB precisa existir *antes* do `terraform
+init` conseguir usá-lo, então não pode ser criado pelo mesmo `.tf` que ele
+armazena o state de. A solução usual é um bootstrap separado (um `.tf` menor,
+aplicado uma vez, fora do fluxo normal de `up`/`destroy`, ou até criado
+manualmente/via script na primeira vez que alguém configura o projeto). A CLI
+também mudaria: `up`/`destroy` passariam a assumir que esse backend já existe,
+em vez de gerenciar seu próprio ciclo de vida.
+
+Como o LocalStack já emula S3 e DynamoDB, dava para validar esse desenho sem
+custo de AWS real — não fiz isso porque não resolve nenhum requisito
+obrigatório nem diferencial que valha mais que o tempo que tiraria de CLI e
+CRUD, que pesam mais na avaliação.
 
 **Limitações de emulação encontradas na prática** (vale a pena registrar porque afeta
 o que se observa testando a API, não a correção do código):

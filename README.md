@@ -195,5 +195,26 @@ decisões de arquitetura, `/health` + log estruturado em JSON (sem corpo de
 requisição/resposta), histórico de commits espelhando decisão → implementação
 → ajuste.
 
-Diferencial conscientemente **não** perseguido: estado do Terraform em backend
-remoto (S3 + lock DynamoDB). Justificativa em ADR-001, Decisão 4.
+## Estado do Terraform: local, conscientemente
+
+O state do Terraform fica local (`infra/terraform.tfstate.d/<workspace>/`,
+fora do controle de versão) — **não** persistido em backend remoto (S3 +
+lock DynamoDB), que é um diferencial explicitamente citado no enunciado.
+
+Decidi não perseguir isso porque o problema que backend remoto resolve
+(múltiplas pessoas/máquinas operando o mesmo ambiente sem pisar no state
+umas das outras) não existe neste contexto: é uma pessoa, uma máquina, um
+ambiente local via LocalStack. Perseguir a solução sem o problema seria
+gastar tempo escasso de 3 dias em algo que não move nenhum critério de
+avaliação.
+
+Se o contexto mudasse (mais gente, ambiente real compartilhado), o desenho
+seria: bucket S3 + tabela DynamoDB de lock no `backend "s3" {}` do Terraform,
+com `workspace_key_prefix` separando `dev`/`stg` automaticamente do jeito que
+os workspaces locais já fazem hoje. O ponto que exige desenho de verdade, não
+só configuração, é que isso cria um problema de "ovo e galinha" — o backend
+precisa existir *antes* do `terraform init` conseguir usá-lo, então precisaria
+de um bootstrap separado (fora do fluxo normal de `up`/`destroy`), e a CLI
+passaria a assumir que esse backend já existe em vez de gerenciar o ciclo de
+vida dele também. Detalhe completo, incluindo o HCL do backend, em
+[ADR-001](docs/decisions/ADR-001-stack-e-arquitetura.md), Decisão 4.
