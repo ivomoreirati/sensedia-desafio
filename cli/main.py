@@ -58,6 +58,12 @@ def check_prereqs():
 
 
 def _init_workspace(env_name: str, tf_env: dict[str, str]) -> None:
+    """Inicializa e garante o workspace do ambiente, criando se preciso.
+
+    Só usado por `up`, que existe pra criar/reconciliar. `destroy` e `status`
+    usam `_workspace_exists` — nenhum dos dois deve criar um workspace só
+    de checar o estado.
+    """
     typer.echo(f"Inicializando terraform para o ambiente '{env_name}'...")
     try:
         terraform_runner.init(tf_env)
@@ -65,6 +71,26 @@ def _init_workspace(env_name: str, tf_env: dict[str, str]) -> None:
     except terraform_runner.TerraformError as exc:
         _print_terraform_error(f"inicializar o terraform para o ambiente '{env_name}'", exc.stderr)
         raise typer.Exit(code=1)
+
+
+def _workspace_exists(env_name: str, tf_env: dict[str, str]) -> bool:
+    """Inicializa e verifica se o workspace existe, sem criar um novo.
+
+    Achado numa revisão de qualidade: `destroy` usava `_init_workspace`
+    (select-or-create) e, rodado num ambiente nunca provisionado, criava um
+    workspace vazio como efeito colateral — depois disso, `status` passava a
+    reportar "destruído" em vez de "nunca foi provisionado" pro mesmo
+    ambiente, porque o workspace vazio agora existia de verdade. Confirmado
+    ao vivo antes de corrigir.
+    """
+    typer.echo(f"Inicializando terraform para o ambiente '{env_name}'...")
+    try:
+        terraform_runner.init(tf_env)
+        workspaces = terraform_runner.list_workspaces(tf_env)
+    except terraform_runner.TerraformError as exc:
+        _print_terraform_error(f"inicializar o terraform para o ambiente '{env_name}'", exc.stderr)
+        raise typer.Exit(code=1)
+    return env_name in workspaces
 
 
 def _build_tf_env() -> dict[str, str]:
@@ -117,7 +143,15 @@ def destroy(
             abort=True,
         )
 
-    _init_workspace(env.value, tf_env)
+    if not _workspace_exists(env.value, tf_env):
+        typer.echo(f"Ambiente '{env.value}' nunca foi provisionado — nada a fazer.")
+        return
+
+    try:
+        terraform_runner.select_existing_workspace(env.value, tf_env)
+    except terraform_runner.TerraformError as exc:
+        _print_terraform_error(f"selecionar o ambiente '{env.value}'", exc.stderr)
+        raise typer.Exit(code=1)
 
     typer.echo(f"Destruindo ambiente '{env.value}'...")
     try:
@@ -139,22 +173,25 @@ def status(
     """Mostra se o ambiente está provisionado. Não cria, muda nem destrói nada."""
     tf_env = _build_tf_env()
 
-    try:
-        terraform_runner.init(tf_env)
-        workspaces = terraform_runner.list_workspaces(tf_env)
-    except terraform_runner.TerraformError as exc:
-        _print_terraform_error(f"inicializar o terraform para o ambiente '{env.value}'", exc.stderr)
-        raise typer.Exit(code=1)
-
-    if env.value not in workspaces:
+    if not _workspace_exists(env.value, tf_env):
         typer.echo(f"Ambiente '{env.value}' nunca foi provisionado.")
         return
 
     try:
         terraform_runner.select_existing_workspace(env.value, tf_env)
-        outputs = json.loads(terraform_runner.output(tf_env))
+        raw_output = terraform_runner.output(tf_env)
     except terraform_runner.TerraformError as exc:
         _print_terraform_error(f"consultar o ambiente '{env.value}'", exc.stderr)
+        raise typer.Exit(code=1)
+
+    try:
+        outputs = json.loads(raw_output)
+    except json.JSONDecodeError:
+        typer.echo(
+            f"Erro ao interpretar a saída do terraform para o ambiente '{env.value}'.\n"
+            f"Detalhe técnico (saída bruta): {raw_output!r}",
+            err=True,
+        )
         raise typer.Exit(code=1)
 
     if not outputs:

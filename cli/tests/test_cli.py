@@ -36,13 +36,16 @@ def aws_credentials(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def fake_workspace_selection(monkeypatch):
-    """Por padrão, simula init/select_workspace bem-sucedidos.
+    """Por padrão, simula que dev/stg já existem e toda operação de
+    workspace funciona sem tocar terraform de verdade.
 
     Testes que precisam verificar o comportamento de init/workspace
     especificamente sobrescrevem isso.
     """
     monkeypatch.setattr(cli_main.terraform_runner, "init", lambda env: None)
     monkeypatch.setattr(cli_main.terraform_runner, "select_workspace", lambda env_name, env: None)
+    monkeypatch.setattr(cli_main.terraform_runner, "list_workspaces", lambda env: ["default", "dev", "stg"])
+    monkeypatch.setattr(cli_main.terraform_runner, "select_existing_workspace", lambda env_name, env: None)
 
 
 class TestValidacaoAntesDeQualquerEfeitoColateral:
@@ -182,6 +185,32 @@ class TestComandoDestroy:
         assert result.exit_code == 0
         assert "já estava destruído" in result.output
 
+    def test_ambiente_nunca_provisionado_nao_cria_workspace(self, monkeypatch):
+        """Bug real encontrado em revisão de qualidade: destroy usava
+        select-or-create, então rodar destroy num ambiente nunca provisionado
+        criava um workspace vazio como efeito colateral — depois disso,
+        status passava a reportar "destruído" em vez de "nunca provisionado"
+        pro mesmo ambiente. Confirmado ao vivo contra o LocalStack antes da
+        correção."""
+        monkeypatch.setattr(cli_main.terraform_runner, "list_workspaces", lambda env: ["default"])
+        select_called = []
+        destroy_called = []
+        monkeypatch.setattr(
+            cli_main.terraform_runner,
+            "select_existing_workspace",
+            lambda env_name, env: select_called.append(env_name),
+        )
+        monkeypatch.setattr(
+            cli_main.terraform_runner, "destroy", lambda env_name, env: destroy_called.append(env_name)
+        )
+
+        result = runner.invoke(cli_main.app, ["destroy", "--env", "dev", "--yes"])
+
+        assert result.exit_code == 0
+        assert "nunca foi provisionado" in result.output
+        assert select_called == []
+        assert destroy_called == []
+
 
 class TestComandoStatus:
     def test_ambiente_nunca_provisionado(self, monkeypatch):
@@ -207,6 +236,18 @@ class TestComandoStatus:
         assert "está provisionado" in result.output
         assert "http://example.com" in result.output
         assert "products-dev" in result.output
+
+    def test_output_json_malformado_falha_sem_expor_stacktrace_python(self, monkeypatch):
+        """Achado em revisão de qualidade: json.loads sem try/except deixava
+        um JSONDecodeError vazar como traceback cru se `terraform output
+        -json` retornasse algo inesperado — violando o princípio de nunca
+        expor stacktrace Python ao operador."""
+        monkeypatch.setattr(cli_main.terraform_runner, "output", lambda env: "isso não é json")
+
+        result = runner.invoke(cli_main.app, ["status", "--env", "dev"])
+
+        assert result.exit_code == 1
+        assert "Traceback" not in result.output
 
     def test_ambiente_destruido_sem_recursos(self, monkeypatch):
         monkeypatch.setattr(cli_main.terraform_runner, "list_workspaces", lambda env: ["default", "dev"])
