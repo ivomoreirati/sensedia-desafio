@@ -6,7 +6,9 @@ inteiramente contra o [LocalStack](https://www.localstack.cloud/) — sem conta 
 nuvem real, sem custo.
 
 O produto avaliado aqui é a **CLI**, não a API. Decisões de arquitetura e os
-trade-offs assumidos estão documentados em [`docs/decisions/ADR-001-stack-e-arquitetura.md`](docs/decisions/ADR-001-stack-e-arquitetura.md).
+trade-offs assumidos estão documentados em [`docs/decisions/`](docs/decisions/)
+([ADR-001](docs/decisions/ADR-001-stack-e-arquitetura.md) — stack e arquitetura,
+[ADR-002](docs/decisions/ADR-002-estrategia-de-testes.md) — estratégia de testes).
 O processo de desenvolvimento assistido por IA está em [`METODOLOGIA.md`](METODOLOGIA.md).
 
 ## Pré-requisitos
@@ -120,7 +122,8 @@ python -m pytest cli/tests/ -v
 Testes da CLI não dependem de Docker/LocalStack/rede (mockam o `terraform_runner`)
 — rodam em frações de segundo. Não há testes automatizados para o handler da
 Lambda; o CRUD foi validado manualmente via `curl` contra o LocalStack (ver
-histórico de commits).
+histórico de commits). Por quê essa diferença de estratégia entre as duas
+camadas: [ADR-002](docs/decisions/ADR-002-estrategia-de-testes.md).
 
 ## Arquitetura
 
@@ -179,7 +182,7 @@ METODOLOGIA.md           # processo de desenvolvimento assistido por IA
 | R3 | Credencial de nuvem nunca no repo | `.gitignore` cobre `.env`/`.tfstate`; credenciais (mesmo dummy do LocalStack) só via variável de ambiente, nunca hardcoded no `.tf`. |
 | R4 | API não expõe credencial de banco | Acesso Lambda→DynamoDB via IAM Role — não existe credencial de banco na arquitetura. |
 | R5 | README reproduzível do zero | Este arquivo. |
-| R6 | Decisões de arquitetura registradas | [ADR-001](docs/decisions/ADR-001-stack-e-arquitetura.md). |
+| R6 | Decisões de arquitetura registradas | [ADR-001](docs/decisions/ADR-001-stack-e-arquitetura.md), [ADR-002](docs/decisions/ADR-002-estrategia-de-testes.md). |
 | R7 | METODOLOGIA.md com 2+ abordagens | [METODOLOGIA.md](METODOLOGIA.md). |
 | R8 | Artefatos de processo e config de agentes versionados | [CLAUDE.md](CLAUDE.md), [`.claude/commands/adr.md`](.claude/commands/adr.md), histórico de commits, este README. |
 
