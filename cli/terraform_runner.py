@@ -9,6 +9,11 @@ from pathlib import Path
 
 INFRA_DIR = Path(__file__).resolve().parent.parent / "infra"
 
+# Sem isso, um terraform travado (ex.: LocalStack não respondendo, o disco
+# cheio que já derrubou o Docker nesta mesma sessão) trava a CLI pra sempre,
+# sem nenhum feedback pro operador — achado em revisão de qualidade.
+DEFAULT_TIMEOUT_SECONDS = 300
+
 
 class TerraformError(Exception):
     """Erro ao rodar um comando terraform. `stderr` traz o motivo real."""
@@ -20,13 +25,22 @@ class TerraformError(Exception):
 
 
 def _run(args: list[str], env: dict[str, str]) -> str:
-    result = subprocess.run(
-        ["terraform", *args],
-        cwd=INFRA_DIR,
-        env=env,
-        capture_output=True,
-        text=True,
-    )
+    try:
+        result = subprocess.run(
+            ["terraform", *args],
+            cwd=INFRA_DIR,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=DEFAULT_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired:
+        raise TerraformError(
+            args,
+            f"terraform não respondeu em {DEFAULT_TIMEOUT_SECONDS}s — pode estar "
+            "travado. Verifique se o Docker/LocalStack está saudável "
+            "(docker compose logs localstack) e tente de novo.",
+        )
     if result.returncode != 0:
         raise TerraformError(args, result.stderr)
     return result.stdout
