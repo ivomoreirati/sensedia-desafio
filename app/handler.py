@@ -16,6 +16,7 @@ comportamento é o padrão (statusCode repassado normalmente).
 import base64
 import json
 import logging
+import math
 import os
 import re
 import uuid
@@ -73,6 +74,13 @@ def _parse_body(event):
         return None
 
 
+def _is_valid_price(price):
+    """Exclui bool (subclasse de int) e Infinity/NaN (JSON do Python aceita
+    ambos por padrão, mas DynamoDB rejeita — sem isso, viravam 500 em vez de
+    400, achado em revisão de qualidade)."""
+    return isinstance(price, (int, float)) and not isinstance(price, bool) and math.isfinite(price) and price >= 0
+
+
 def _validate_product(data):
     if not isinstance(data, dict):
         return "corpo da requisição deve ser um objeto JSON"
@@ -80,8 +88,8 @@ def _validate_product(data):
     price = data.get("price")
     if not isinstance(name, str) or not name.strip():
         return "'name' é obrigatório e deve ser uma string não vazia"
-    if not isinstance(price, (int, float)) or isinstance(price, bool) or price < 0:
-        return "'price' é obrigatório e deve ser um número >= 0"
+    if not _is_valid_price(price):
+        return "'price' é obrigatório e deve ser um número finito >= 0"
     return None
 
 
@@ -103,15 +111,18 @@ def _validate_partial_product(data):
         return "informe pelo menos um campo para atualizar: 'name' ou 'price'"
     if "name" in data and (not isinstance(data["name"], str) or not data["name"].strip()):
         return "'name', se informado, deve ser uma string não vazia"
-    if "price" in data:
-        price = data["price"]
-        if not isinstance(price, (int, float)) or isinstance(price, bool) or price < 0:
-            return "'price', se informado, deve ser um número >= 0"
+    if "price" in data and not _is_valid_price(data["price"]):
+        return "'price', se informado, deve ser um número finito >= 0"
     return None
 
 
 def handler(event, context):
-    method = event.get("requestContext", {}).get("http", {}).get("method", "")
+    # .get(k) or {} em vez de .get(k, {}): o default só vale quando a chave
+    # está ausente, não quando está presente com valor None (evento de teste
+    # construído à mão pode ter "requestContext": null) — achado em revisão
+    # de qualidade, causava AttributeError não tratado antes do try/except.
+    request_context = event.get("requestContext") or {}
+    method = (request_context.get("http") or {}).get("method", "")
     path = (event.get("rawPath") or "").rstrip("/") or "/"
     _log("request_received", method=method, path=path)
 
