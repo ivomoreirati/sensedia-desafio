@@ -96,14 +96,18 @@ arquitetura antes de existir código.
 
 ## 4. O que mudaria em 6 meses
 
-- Testes de integração automatizados contra o LocalStack rodando em CI a cada
-  commit, não só validação manual — teria pego o bug do `invoke_mode`
-  automaticamente, não numa sessão de teste manual.
+- Testes de integração de verdade rodando em CI — hoje o CI ([.github/workflows/ci.yml](.github/workflows/ci.yml))
+  valida testes unitários da CLI e `terraform fmt`/`validate`, mas nenhum
+  desses sobe um LocalStack real dentro do runner e roda `up`/`destroy` de
+  ponta a ponta. Teria pego o bug do `invoke_mode` automaticamente, em vez de
+  precisar de uma sessão de teste manual pra descobrir.
 - Backend remoto de state (S3 + lock DynamoDB), descartado aqui por escopo
   (ambiente 100% local e de uma pessoa só), mas necessário assim que mais de
   uma pessoa precisasse operar o mesmo ambiente.
-- Pipeline de CI validando `terraform fmt -check`, `terraform validate` e
-  `pytest` a cada PR — não implementado nesta semana por prioridade de tempo.
+- Ambiente efêmero por Pull Request — CI subindo/derrubando um ambiente real
+  via a própria CLI a cada PR, não só validando sintaxe. Provaria a
+  idempotência num contexto de time operando em paralelo, não só na minha
+  máquina.
 - Revisão de segurança mais formal: aqui a segurança foi tratada por decisão
   arquitetural (IAM Role em vez de credencial de banco), mas não houve uma
   etapa dedicada de threat modeling — em 6 meses isso viraria uma revisão
