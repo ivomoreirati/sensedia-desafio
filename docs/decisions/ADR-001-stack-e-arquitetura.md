@@ -57,12 +57,32 @@ Terraform, que precisam ser traduzidos para algo legível ao operador.
 - **EC2 (VM)**: mais manual (gestão de SO, systemd), foge do que se espera de automação
   moderna de plataforma. Sem vantagem clara para este escopo.
 
-**Decisão**: API Gateway/Function URL → Lambda → DynamoDB, acesso via IAM Role.
+**Decisão**: Lambda → DynamoDB, acesso via IAM Role.
 
 **Trade-off assumido**: nenhuma credencial de banco existe nesta arquitetura — não é
 "escondida com cuidado", ela simplesmente não existe, porque o acesso é via IAM. Isso
 resolve R4 por construção. Em troca, abro mão de demonstrar modelagem relacional e de
 uma arquitetura mais próxima do que muitas empresas rodam em produção com banco SQL.
+
+## Decisão 3b — Exposição HTTP: Lambda Function URL (não API Gateway)
+
+**Alternativas descartadas**:
+- **API Gateway (HTTP API)**: mais peças de Terraform (API, integração, rota,
+  deploy/stage — 3+ recursos a mais só pra expor a mesma Lambda), e recursos
+  (throttling, domínio customizado, autenticação de borda, múltiplos backends)
+  que este escopo não usa — um recurso HTTP CRUD só.
+
+**Decisão**: `aws_lambda_function_url`, sem API Gateway. Roteamento por
+método/path fica dentro do próprio handler (ver `app/handler.py`), já que a
+Function URL não tem conceito de rota declarativa.
+
+**Trade-off assumido**: abro mão de recursos prontos de borda (throttling,
+domínio customizado, API keys) que um API Gateway daria de graça, em troca de
+menos infraestrutura pra provisionar/destruir/manter e menos superfície pra
+errar em 3 dias. Também descobri na prática que isso tem um custo de emulação:
+a Function URL no LocalStack 3.0 (community) não repassa `statusCode` do
+handler pro HTTP real (ver limitação abaixo) — um trade-off que só apareceu
+testando, não era previsível na decisão.
 
 ## Decisão 4 — Alvo de nuvem: LocalStack
 
