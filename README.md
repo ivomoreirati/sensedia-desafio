@@ -169,6 +169,7 @@ app/
 docs/decisions/         # ADRs
 .github/workflows/ci.yml # testes da CLI + terraform fmt/validate, sem provisionar
 .claude/commands/adr.md  # comando customizado: registra decisões como ADR
+.claude/agents/terraform-reviewer.md # subagente: revisa infra/*.tf antes de commit
 CLAUDE.md               # configuração/contexto ensinado ao agente de IA
 METODOLOGIA.md           # processo de desenvolvimento assistido por IA
 ```
@@ -184,16 +185,27 @@ METODOLOGIA.md           # processo de desenvolvimento assistido por IA
 | R5 | README reproduzível do zero | Este arquivo. |
 | R6 | Decisões de arquitetura registradas | [ADR-001](docs/decisions/ADR-001-stack-e-arquitetura.md), [ADR-002](docs/decisions/ADR-002-estrategia-de-testes.md). |
 | R7 | METODOLOGIA.md com 2+ abordagens | [METODOLOGIA.md](METODOLOGIA.md). |
-| R8 | Artefatos de processo e config de agentes versionados | [CLAUDE.md](CLAUDE.md), [`.claude/commands/adr.md`](.claude/commands/adr.md), histórico de commits, este README. |
+| R8 | Artefatos de processo e config de agentes versionados | [CLAUDE.md](CLAUDE.md), [`.claude/commands/adr.md`](.claude/commands/adr.md), [`.claude/agents/terraform-reviewer.md`](.claude/agents/terraform-reviewer.md), histórico de commits, este README. |
 
 Diferenciais entregues: segundo ambiente (`--env stg`, isolado por workspace do
 Terraform — validado com dados reais), comando `status` de inspeção sem efeito
 colateral, `destroy` com confirmação + `--yes`, testes automatizados sem
 dependência de nuvem, CI validando testes + `terraform fmt`/`validate` sem
 provisionar, comando customizado do Claude Code (`/adr`) para registrar novas
-decisões de arquitetura, `/health` + log estruturado em JSON (sem corpo de
-requisição/resposta), histórico de commits espelhando decisão → implementação
-→ ajuste.
+decisões de arquitetura, subagente customizado `terraform-reviewer`
+(`.claude/agents/terraform-reviewer.md`, checklist baseado em problemas reais
+encontrados nesta sessão — credencial hardcoded, colisão de nome entre
+ambientes, IAM permissivo, drift de idempotência), `/health` + log estruturado
+em JSON (sem corpo de requisição/resposta), histórico de commits espelhando
+decisão → implementação → ajuste.
+
+> **Nota de honestidade sobre o subagente**: o formato do arquivo foi
+> verificado como correto, mas subagentes em `.claude/agents/` só são
+> carregados no início de uma sessão do Claude Code — como foi criado no meio
+> de uma sessão já em andamento, não consegui dispará-lo ao vivo pra provar
+> que roda (diferente do comando `/adr`, que testei de ponta a ponta). Basta
+> abrir uma sessão nova neste repositório e chamá-lo pelo nome
+> `terraform-reviewer` para confirmar.
 
 ## Estado do Terraform: local, conscientemente
 
