@@ -5,7 +5,7 @@
 
 ## Contexto
 
-A CLI (`cli/`) tem 16 testes unitários (`cli/tests/test_cli.py`), rodando em
+A CLI (`cli/`) tem 18 testes unitários (`cli/tests/test_cli.py`), rodando em
 CI a cada push. O handler da Lambda (`app/handler.py`), que implementa o CRUD
 de `/products`, não tem nenhum teste automatizado — foi validado manualmente
 via `curl` contra o LocalStack ao longo da sessão (create/list/get/update/
