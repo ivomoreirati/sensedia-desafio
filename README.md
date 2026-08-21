@@ -211,13 +211,14 @@ ambientes, IAM permissivo, drift de idempotência), `/health` + log estruturado
 em JSON (sem corpo de requisição/resposta), histórico de commits espelhando
 decisão → implementação → ajuste.
 
-> **Nota de honestidade sobre o subagente**: o formato do arquivo foi
-> verificado como correto, mas subagentes em `.claude/agents/` só são
-> carregados no início de uma sessão do Claude Code — como foi criado no meio
-> de uma sessão já em andamento, não consegui dispará-lo ao vivo pra provar
-> que roda (diferente do comando `/adr`, que testei de ponta a ponta). Basta
-> abrir uma sessão nova neste repositório e chamá-lo pelo nome
-> `terraform-reviewer` para confirmar.
+> **Nota sobre o subagente**: criado no meio de uma sessão já em andamento, por
+> isso não pôde ser disparado naquele momento — subagentes em `.claude/agents/`
+> só carregam no início de uma sessão do Claude Code. Confirmado ao vivo em
+> 2026-08-21, numa sessão nova: rodou `terraform fmt -check` e
+> `terraform validate` de fato (não por suposição), percorreu os 6 itens do
+> checklist contra `infra/*.tf` e reportou corretamente "nada relevante
+> encontrado" no estado atual do código — sem inventar problema pra justificar
+> a revisão, como a própria instrução do subagente pede.
 
 ## Estado do Terraform: local, conscientemente
 
